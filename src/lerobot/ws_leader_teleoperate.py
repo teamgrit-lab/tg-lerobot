@@ -2,7 +2,8 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# You may
+# obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -12,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Simple script to get teleoperation from a leader robot and send it to a websocket.
+Simple script to get teleoperation from a leader robot and send it to a websocket server.
 
 Example:
 
 ```shell
 python -m lerobot.ws_leader_teleoperate \
     --teleop.type=so101_leader \
-    --teleop.port=/dev/tty.usbmodem58760431551 \
-    --teleop.id=blue \
+    --teleop.port=/dev/ttyACM1 \
+    --teleop.id=my_awesome_leader_arm \
     --ws.host=localhost \
     --ws.port=8765 \
     --ws.endpoint=/ws/teleop
@@ -50,9 +51,6 @@ from lerobot.teleoperators import (  # noqa: F401
 )
 from lerobot.utils.utils import init_logging
 
-# A set of connected websocket clients
-clients = set()
-
 
 class NumpyEncoder(json.JSONEncoder):
     """Special json encoder for numpy types"""
@@ -67,39 +65,29 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-async def handler(websocket, path, teleop: Teleoperator):
+async def send_actions_loop(teleop: Teleoperator, websocket):
     """
-    Handle websocket connections. Add new clients and remove them when they disconnect.
+    Get actions from the leader and send them through the websocket.
     """
-    clients.add(websocket)
-    logging.info(f"Client connected: {websocket.remote_address}. Total clients: {len(clients)}")
-    try:
-        # Keep the connection open
-        await websocket.wait_closed()
-    finally:
-        clients.remove(websocket)
-        logging.info(f"Client disconnected: {websocket.remote_address}. Total clients: {len(clients)}")
-
-
-async def broadcast_actions(teleop: Teleoperator):
-    """
-    Broadcast teleop actions to all connected clients.
-    """
+    logging.info("Starting to send actions.")
     while True:
-        action = teleop.get_action()
-        if action and clients:
-            message = json.dumps(action, cls=NumpyEncoder)
-            # Use asyncio.gather to send messages to all clients concurrently
-            await asyncio.gather(
-                *[client.send(message) for client in clients],
-                return_exceptions=False,  # Exceptions will be propagated
-            )
-        # Adjust sleep time to control the rate of sending actions
-        await asyncio.sleep(1 / 60)  # ~60 Hz
+        try:
+            action = teleop.get_action()
+            if action:
+                message = json.dumps(action, cls=NumpyEncoder)
+                await websocket.send(message)
+            # Adjust sleep time to control the rate of sending actions
+            await asyncio.sleep(1 / 60)  # ~60 Hz
+        except websockets.exceptions.ConnectionClosed:
+            logging.warning("Connection closed while sending. Will attempt to reconnect.")
+            break
+        except Exception as e:
+            logging.error(f"An error occurred in send_actions_loop: {e}")
+            break
 
 
 @dataclass
-class WebsocketServerConfig:
+class WebsocketClientConfig:
     host: str = "localhost"
     port: int = 8765
     endpoint: str = "/ws/teleop"
@@ -108,7 +96,7 @@ class WebsocketServerConfig:
 @dataclass
 class LeaderTeleoperateConfig:
     teleop: TeleoperatorConfig
-    ws: WebsocketServerConfig = field(default_factory=WebsocketServerConfig)
+    ws: WebsocketClientConfig = field(default_factory=WebsocketClientConfig)
 
 
 async def main(cfg: LeaderTeleoperateConfig):
@@ -118,14 +106,20 @@ async def main(cfg: LeaderTeleoperateConfig):
     teleop = make_teleoperator_from_config(cfg.teleop)
     teleop.connect()
 
-    # Pass the teleop instance to the handler using a partial function
-    handler_with_teleop = lambda ws, path: handler(ws, path, teleop)
+    websocket_url = f"ws://{cfg.ws.host}:{cfg.ws.port}{cfg.ws.endpoint}"
 
-    async with websockets.serve(handler_with_teleop, cfg.ws.host, cfg.ws.port):
-        logging.info(f"Websocket server started at ws://{cfg.ws.host}:{cfg.ws.port}{cfg.ws.endpoint}")
-        await broadcast_actions(teleop)
-
-    teleop.disconnect()
+    while True:
+        try:
+            logging.info(f"Attempting to connect to {websocket_url}...")
+            async with websockets.connect(websocket_url) as websocket:
+                logging.info(f"Connected to websocket server at {websocket_url}")
+                await send_actions_loop(teleop, websocket)
+        except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:
+            logging.error(f"Failed to connect or connection lost: {e}. Retrying in 5 seconds.")
+            await asyncio.sleep(5)
+        except Exception as e:
+            logging.error(f"An unexpected error occurred in main loop: {e}. Retrying in 5 seconds.")
+            await asyncio.sleep(5)
 
 
 @draccus.wrap()
@@ -138,4 +132,3 @@ def leader_teleoperate(cfg: LeaderTeleoperateConfig):
 
 if __name__ == "__main__":
     leader_teleoperate()
-
