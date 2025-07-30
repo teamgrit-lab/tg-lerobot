@@ -112,7 +112,7 @@ async def main(cfg: LeaderTeleoperateConfig):
     while True:
         try:
             logging.info(f"Attempting to connect to {websocket_url}...")
-            async with websockets.connect(websocket_url) as websocket:
+            async with websockets.connect(websocket_url, ping_timeout=None) as websocket:
                 logging.info(f"Connected to websocket server at {websocket_url}")
                 await send_actions_loop(teleop, websocket)
         except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:

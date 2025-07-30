@@ -89,7 +89,7 @@ async def websocket_client(url, robot: Robot):
     """Manages the websocket connection and reconnection."""
     while True:
         try:
-            async with websockets.connect(url) as websocket:
+            async with websockets.connect(url, ping_timeout=None) as websocket:
                 logging.info(f"Connected to websocket server at {url}")
                 await receive_actions_loop(websocket, robot)
         except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:
