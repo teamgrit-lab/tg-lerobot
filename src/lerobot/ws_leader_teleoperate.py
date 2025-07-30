@@ -75,7 +75,8 @@ async def send_actions_loop(teleop: Teleoperator, websocket):
             action = teleop.get_action()
             if action:
                 message = json.dumps(action, cls=NumpyEncoder)
-                await websocket.send(message)
+                print(f"Sending message: {message}")
+                await websocket.send(message.encode("utf-8"))
             # Adjust sleep time to control the rate of sending actions
             await asyncio.sleep(1 / 60)  # ~60 Hz
         except websockets.exceptions.ConnectionClosed:

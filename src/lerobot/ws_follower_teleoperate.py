@@ -99,7 +99,9 @@ class WSTeleoperator(Teleoperator):
         while self.is_running:
             try:
                 message = await websocket.recv()
-                data = json.loads(message)
+                # Assuming the message is received as bytes, decode it first.
+                decoded_message = message.decode("utf-8")
+                data = json.loads(decoded_message)
                 self.latest_action = {k: np.array(v) for k, v in data.items()}
             except websockets.exceptions.ConnectionClosed:
                 logging.warning("Websocket connection closed.")
