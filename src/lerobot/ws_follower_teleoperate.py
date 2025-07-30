@@ -64,8 +64,8 @@ latest_action: dict[str, Any] | None = None
 action_lock = threading.Lock()
 
 
-async def receive_actions_loop(websocket):
-    """Receive actions from the websocket and update the shared `latest_action` variable."""
+async def receive_actions_loop(websocket, robot: Robot):
+    """Receive actions from the websocket and send them to the robot immediately."""
     global latest_action
     async for message in websocket:
         try:
@@ -73,8 +73,11 @@ async def receive_actions_loop(websocket):
             decoded_message = message.decode("utf-8")
             # print(decoded_message)
             data = json.loads(decoded_message)
+            action = {k: np.array(v) for k, v in data.items()}
+            robot.send_action(action)
+
             with action_lock:
-                latest_action = {k: np.array(v) for k, v in data.items()}
+                latest_action = action
         except json.JSONDecodeError:
             logging.warning("Received invalid JSON message")
         except Exception as e:
@@ -82,13 +85,13 @@ async def receive_actions_loop(websocket):
             break
 
 
-async def websocket_client(url):
+async def websocket_client(url, robot: Robot):
     """Manages the websocket connection and reconnection."""
     while True:
         try:
             async with websockets.connect(url) as websocket:
                 logging.info(f"Connected to websocket server at {url}")
-                await receive_actions_loop(websocket)
+                await receive_actions_loop(websocket, robot)
         except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:
             logging.error(f"Failed to connect or connection lost: {e}. Retrying in 5 seconds.")
             await asyncio.sleep(5)
@@ -97,11 +100,11 @@ async def websocket_client(url):
             await asyncio.sleep(5)
 
 
-def run_websocket_client_in_thread(url):
+def run_websocket_client_in_thread(url, robot: Robot):
     """Runs the asyncio websocket client in a separate thread."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(websocket_client(url))
+    loop.run_until_complete(websocket_client(url, robot))
 
 
 def get_action_from_shared_state() -> dict[str, Any] | None:
@@ -128,8 +131,8 @@ class FollowerTeleoperateConfig:
     display_data: bool = False
 
 
-def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: float | None = None):
-    """The main loop for controlling the robot based on actions received from the websocket."""
+def follower_info_loop(robot: Robot, display_data: bool = False, duration: float | None = None):
+    """The main loop for displaying robot info."""
     while not robot.is_connected:
         logging.info("Waiting for robot to connect...")
         time.sleep(1.0)
@@ -141,7 +144,7 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
 
     display_len = max(len(key) for key in robot.action_features)
 
-    start = time.perf_counter()
+    start_time = time.perf_counter()
     while True:
         loop_start = time.perf_counter()
         action = get_action_from_shared_state()
@@ -156,13 +159,9 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
             observation = robot.get_observation()
             log_rerun_data(observation, action)
 
-        robot.send_action(action)
-        dt_s = time.perf_counter() - loop_start
-        busy_wait(1 / fps - dt_s)
-
         loop_s = time.perf_counter() - loop_start
 
-        # Clear previous print output
+        # print info, but dont block robot control
         # if len(action) > 0:
         #     move_cursor_up(len(action) + 4)
 
@@ -172,8 +171,10 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
         #     print(f"{motor:<{display_len}} | {float(value):>7.2f}")
         # print(f"\ntime: {loop_s * 1e3:.2f}ms ({1 / loop_s:.0f} Hz)")
 
-        if duration is not None and time.perf_counter() - start >= duration:
-            return
+        if duration is not None and time.perf_counter() - start_time >= duration:
+            break
+        # update display at ~10hz
+        time.sleep(0.1)
 
 
 @draccus.wrap()
@@ -189,11 +190,14 @@ def follower_teleoperate(cfg: FollowerTeleoperateConfig):
     websocket_url = f"ws://{cfg.ws.host}:{cfg.ws.port}{cfg.ws.endpoint}"
 
     # Start websocket client in a background daemon thread
-    ws_thread = threading.Thread(target=run_websocket_client_in_thread, args=(websocket_url,), daemon=True)
+    ws_thread = threading.Thread(
+        target=run_websocket_client_in_thread, args=(websocket_url, robot), daemon=True
+    )
     ws_thread.start()
 
     try:
-        follower_loop(robot, cfg.fps, display_data=cfg.display_data, duration=cfg.teleop_time_s)
+        # The main thread can be used for other tasks, like displaying info
+        follower_info_loop(robot, display_data=cfg.display_data, duration=cfg.teleop_time_s)
     except KeyboardInterrupt:
         print("\nExiting...")
     finally:
