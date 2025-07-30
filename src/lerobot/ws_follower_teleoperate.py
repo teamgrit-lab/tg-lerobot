@@ -122,7 +122,7 @@ class FollowerTeleoperateConfig:
     robot: RobotConfig
     ws: WebsocketClientConfig = field(default_factory=WebsocketClientConfig)
     # Limit the maximum frames per second.
-    fps: int = 60
+    fps: int = 30
     teleop_time_s: float | None = None
     # Display all cameras on screen
     display_data: bool = False
@@ -149,7 +149,7 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
         if action is None:
             # Wait for the first action to arrive
             logging.info("Waiting for first action from websocket...")
-            time.sleep(0.5)
+            time.sleep(0.01)
             continue
 
         if display_data:
@@ -163,14 +163,14 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
         loop_s = time.perf_counter() - loop_start
 
         # Clear previous print output
-        if len(action) > 0:
-            move_cursor_up(len(action) + 4)
+        # if len(action) > 0:
+        #     move_cursor_up(len(action) + 4)
 
-        print("\n" + "-" * (display_len + 10))
-        print(f"{'NAME':<{display_len}} | {'NORM':>7}")
-        for motor, value in action.items():
-            print(f"{motor:<{display_len}} | {float(value):>7.2f}")
-        print(f"\ntime: {loop_s * 1e3:.2f}ms ({1 / loop_s:.0f} Hz)")
+        # print("\n" + "-" * (display_len + 10))
+        # print(f"{'NAME':<{display_len}} | {'NORM':>7}")
+        # for motor, value in action.items():
+        #     print(f"{motor:<{display_len}} | {float(value):>7.2f}")
+        # print(f"\ntime: {loop_s * 1e3:.2f}ms ({1 / loop_s:.0f} Hz)")
 
         if duration is not None and time.perf_counter() - start >= duration:
             return

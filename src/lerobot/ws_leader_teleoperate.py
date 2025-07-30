@@ -78,7 +78,7 @@ async def send_actions_loop(teleop: Teleoperator, websocket):
                 print(f"Sending message: {message}")
                 await websocket.send(message.encode("utf-8"))
             # Adjust sleep time to control the rate of sending actions
-            await asyncio.sleep(1 / 60)  # ~60 Hz
+            await asyncio.sleep(1 / 30)  # ~30 Hz
         except websockets.exceptions.ConnectionClosed:
             logging.warning("Connection closed while sending. Will attempt to reconnect.")
             break
