@@ -18,7 +18,7 @@ Simple script to control a robot from a websocket teleoperation.
 Example:
 
 ```shell
-python -m lerobot.wsteleoperate \
+python -m lerobot.ws_follower_teleoperate \
     --robot.type=so101_follower \
     --robot.port=/dev/tty.usbmodem58760431541 \
     --robot.cameras="{ front: {type: opencv, index_or_path: 0, width: 1920, height: 1080, fps: 30}}" \
@@ -139,8 +139,8 @@ class WSTeleoperator(Teleoperator):
 
 @dataclass
 class TeleoperateConfig:
-    teleop: WSTeleoperatorConfig = field(default_factory=WSTeleoperatorConfig)
     robot: RobotConfig
+    teleop: WSTeleoperatorConfig = field(default_factory=WSTeleoperatorConfig)
     # Limit the maximum frames per second.
     fps: int = 60
     teleop_time_s: float | None = None
