@@ -55,7 +55,6 @@ from lerobot.robots import (  # noqa: F401
     so100_follower,
     so101_follower,
 )
-from lerobot.teleoperators.teleoperator import Teleoperator
 from lerobot.utils.robot_utils import busy_wait
 from lerobot.utils.utils import init_logging, move_cursor_up
 from lerobot.utils.visualization_utils import _init_rerun, log_rerun_data
@@ -71,7 +70,7 @@ class WSTeleoperatorConfig:
     endpoint: str = "/ws/teleop"
 
 
-class WSTeleoperator(Teleoperator):
+class WSTeleoperator:
     def __init__(self, cfg: WSTeleoperatorConfig):
         self.cfg = cfg
         self._thread = None
@@ -196,7 +195,7 @@ def teleop_loop(
             return
 
 
-def make_teleoperator_from_config(cfg: Any) -> Teleoperator:
+def make_teleoperator_from_config(cfg: Any) -> WSTeleoperator:
     if cfg.type == "ws":
         return WSTeleoperator(cfg)
     raise ValueError(f"Unknown teleoperator type: {cfg.type}")
@@ -209,6 +208,8 @@ def teleoperate(cfg: TeleoperateConfig):
     if cfg.display_data:
         _init_rerun(session_name="teleoperation")
 
+    if cfg.teleop.id is None:
+        cfg.teleop.id = cfg.robot.id
     teleop = make_teleoperator_from_config(cfg.teleop)
     robot = make_robot_from_config(cfg.robot)
 
