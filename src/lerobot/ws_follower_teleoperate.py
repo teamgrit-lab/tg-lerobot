@@ -169,7 +169,7 @@ def follower_loop(robot: Robot, fps: int, display_data: bool = False, duration: 
         print("\n" + "-" * (display_len + 10))
         print(f"{'NAME':<{display_len}} | {'NORM':>7}")
         for motor, value in action.items():
-            print(f"{motor:<{display_len}} | {value[0]:>7.2f}")
+            print(f"{motor:<{display_len}} | {float(value):>7.2f}")
         print(f"\ntime: {loop_s * 1e3:.2f}ms ({1 / loop_s:.0f} Hz)")
 
         if duration is not None and time.perf_counter() - start >= duration:
