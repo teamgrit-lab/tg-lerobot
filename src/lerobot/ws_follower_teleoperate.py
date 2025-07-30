@@ -71,6 +71,7 @@ async def receive_actions_loop(websocket):
         try:
             # Assuming the message is received as bytes, decode it first.
             decoded_message = message.decode("utf-8")
+            print(decoded_message)
             data = json.loads(decoded_message)
             with action_lock:
                 latest_action = {k: np.array(v) for k, v in data.items()}
