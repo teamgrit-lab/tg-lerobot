@@ -84,3 +84,11 @@ def calibrate(cfg: CalibrateConfig):
 
 if __name__ == "__main__":
     calibrate()
+
+
+def main():
+    """Entry point for console script `lerobot-calibrate`.
+
+    We keep the existing behavior (draccus CLI) by simply calling calibrate().
+    """
+    calibrate()
