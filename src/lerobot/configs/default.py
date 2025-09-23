@@ -53,6 +53,21 @@ class MlflowConfig:
 
 
 @dataclass
+class MinioConfig:
+    enable: bool = False
+    endpoint: str | None = None
+    access_key: str | None = None
+    secret_key: str | None = None
+    bucket: str | None = None
+    prefix: str | None = None
+    region: str = "us-east-1"
+    secure: bool = True
+    create_bucket: bool = False
+    upload_history: bool = True  # Upload every checkpoint under checkpoints/<step>
+    keep_local_copy: bool = True
+
+
+@dataclass
 class EvalConfig:
     n_episodes: int = 50
     # `batch_size` specifies the number of environments to use in a gym.vector.VectorEnv.

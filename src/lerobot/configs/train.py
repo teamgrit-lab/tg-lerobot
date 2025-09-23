@@ -23,7 +23,7 @@ from huggingface_hub.errors import HfHubHTTPError
 
 from lerobot import envs
 from lerobot.configs import parser
-from lerobot.configs.default import DatasetConfig, EvalConfig, MlflowConfig
+from lerobot.configs.default import DatasetConfig, EvalConfig, MlflowConfig, MinioConfig
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.optim import OptimizerConfig
 from lerobot.optim.schedulers import LRSchedulerConfig
@@ -63,6 +63,7 @@ class TrainPipelineConfig(HubMixin):
     scheduler: LRSchedulerConfig | None = None
     eval: EvalConfig = field(default_factory=EvalConfig)
     mlflow: MlflowConfig = field(default_factory=MlflowConfig)
+    minio: MinioConfig = field(default_factory=MinioConfig)
 
     def __post_init__(self):
         self.checkpoint_path = None
@@ -120,6 +121,18 @@ class TrainPipelineConfig(HubMixin):
             raise ValueError(
                 "'policy.repo_id' argument missing. Please specify it to push the model to the hub."
             )
+
+        if self.minio.enable:
+            missing = [
+                name
+                for name in ("endpoint", "access_key", "secret_key", "bucket")
+                if not getattr(self.minio, name)
+            ]
+            if missing:
+                raise ValueError(
+                    "MinIO logging is enabled but the following fields are missing: "
+                    + ", ".join(missing)
+                )
 
     @classmethod
     def __get_path_fields__(cls) -> list[str]:

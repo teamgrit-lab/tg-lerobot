@@ -84,6 +84,7 @@ from lerobot.transport.utils import (
     state_to_bytes,
 )
 from lerobot.utils.buffer import ReplayBuffer, concatenate_batch_transitions
+from lerobot.utils.minio_utils import MinioUploader
 from lerobot.utils.process import ProcessSignalHandler
 from lerobot.utils.random_utils import set_seed
 from lerobot.utils.train_utils import (
@@ -159,6 +160,11 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
         mlflow_logger = None
         logging.info(colored("Logs will be saved locally.", "yellow", attrs=["bold"]))
 
+    if cfg.minio.enable:
+        minio_uploader = MinioUploader(cfg)
+    else:
+        minio_uploader = None
+
     # Handle resume logic
     cfg = handle_resume_logic(cfg)
 
@@ -173,6 +179,7 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
     start_learner_threads(
         cfg=cfg,
         mlflow_logger=mlflow_logger,
+        minio_uploader=minio_uploader,
         shutdown_event=shutdown_event,
     )
 
@@ -180,6 +187,7 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
 def start_learner_threads(
     cfg: TrainRLServerPipelineConfig,
     mlflow_logger: MlflowLogger | None,
+    minio_uploader: MinioUploader | None,
     shutdown_event: any,  # Event,
 ) -> None:
     """
@@ -222,6 +230,7 @@ def start_learner_threads(
     add_actor_information_and_train(
         cfg=cfg,
         mlflow_logger=mlflow_logger,
+        minio_uploader=minio_uploader,
         shutdown_event=shutdown_event,
         transition_queue=transition_queue,
         interaction_message_queue=interaction_message_queue,
@@ -251,6 +260,7 @@ def start_learner_threads(
 def add_actor_information_and_train(
     cfg: TrainRLServerPipelineConfig,
     mlflow_logger: MlflowLogger | None,
+    minio_uploader: MinioUploader | None,
     shutdown_event: any,  # Event,
     transition_queue: Queue,
     interaction_message_queue: Queue,
@@ -275,6 +285,7 @@ def add_actor_information_and_train(
     Args:
         cfg (TrainRLServerPipelineConfig): Configuration object containing hyperparameters.
         mlflow_logger (MlflowLogger | None): Logger for tracking training progress.
+        minio_uploader (MinioUploader | None): Uploader for checkpoints.
         shutdown_event (Event): Event to signal shutdown.
         transition_queue (Queue): Queue for receiving transitions from the actor.
         interaction_message_queue (Queue): Queue for receiving interaction messages from the actor.
@@ -601,6 +612,7 @@ def add_actor_information_and_train(
                 offline_replay_buffer=offline_replay_buffer,
                 dataset_repo_id=dataset_repo_id,
                 fps=fps,
+                minio_uploader=minio_uploader,
             )
 
 
@@ -685,6 +697,8 @@ def save_training_checkpoint(
     offline_replay_buffer: ReplayBuffer | None = None,
     dataset_repo_id: str | None = None,
     fps: int = 30,
+    *,
+    minio_uploader: MinioUploader | None = None,
 ) -> None:
     """
     Save training checkpoint and associated data.
@@ -708,6 +722,7 @@ def save_training_checkpoint(
         offline_replay_buffer: Optional offline replay buffer to save
         dataset_repo_id: Repository ID for dataset
         fps: Frames per second for dataset
+        minio_uploader: Optional uploader that mirrors checkpoints to MinIO.
     """
     logging.info(f"Checkpoint policy after step {optimization_step}")
     _num_digits = max(6, len(str(online_steps)))
@@ -732,8 +747,19 @@ def save_training_checkpoint(
     training_state = {"step": optimization_step, "interaction_step": interaction_step}
     torch.save(training_state, os.path.join(training_state_dir, "training_state.pt"))
 
-    # Update the "last" symlink
-    update_last_checkpoint(checkpoint_dir)
+    keep_local = not cfg.minio.enable or cfg.minio.keep_local_copy
+
+    if keep_local:
+        update_last_checkpoint(checkpoint_dir)
+    else:
+        last_path = Path(checkpoint_dir).parent / "last"
+        if last_path.is_symlink() or last_path.is_file():
+            last_path.unlink(missing_ok=True)
+        elif last_path.is_dir():
+            shutil.rmtree(last_path)
+
+    if minio_uploader:
+        minio_uploader.upload_checkpoint(checkpoint_dir, aliases=("last",))
 
     # TODO : temporary save replay buffer here, remove later when on the robot
     # We want to control this with the keyboard inputs

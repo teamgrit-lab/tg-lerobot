@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import shutil
 import time
 from contextlib import nullcontext
 from pprint import pformat
@@ -37,6 +38,7 @@ from lerobot.policies.pretrained import PreTrainedPolicy
 from lerobot.policies.utils import get_device_from_parameters
 from lerobot.scripts.eval import eval_policy_all
 from lerobot.utils.logging_utils import AverageMeter, MetricsTracker
+from lerobot.utils.minio_utils import MinioUploader
 from lerobot.utils.random_utils import set_seed
 from lerobot.utils.train_utils import (
     get_step_checkpoint_dir,
@@ -152,6 +154,13 @@ def train(cfg: TrainPipelineConfig):
     else:
         mlflow_logger = None
         logging.info(colored("Logs will be saved locally.", "yellow", attrs=["bold"]))
+
+    if cfg.minio.enable:
+        minio_uploader = MinioUploader(cfg)
+        keep_local_checkpoints = cfg.minio.keep_local_copy
+    else:
+        minio_uploader = None
+        keep_local_checkpoints = True
 
     if cfg.seed is not None:
         set_seed(cfg.seed)
@@ -292,9 +301,18 @@ def train(cfg: TrainPipelineConfig):
             save_checkpoint(
                 checkpoint_dir, step, cfg, policy, optimizer, lr_scheduler, preprocessor, postprocessor
             )
-            update_last_checkpoint(checkpoint_dir)
+            if keep_local_checkpoints:
+                update_last_checkpoint(checkpoint_dir)
+            else:
+                last_path = checkpoint_dir.parent / "last"
+                if last_path.is_symlink() or last_path.is_file():
+                    last_path.unlink(missing_ok=True)
+                elif last_path.is_dir():
+                    shutil.rmtree(last_path)
             if mlflow_logger:
                 mlflow_logger.log_policy(checkpoint_dir)
+            if minio_uploader:
+                minio_uploader.upload_checkpoint(checkpoint_dir, aliases=("last",))
 
         if cfg.env and is_eval_step:
             step_id = get_step_identifier(step, cfg.steps)
