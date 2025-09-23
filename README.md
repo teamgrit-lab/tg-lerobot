@@ -185,15 +185,18 @@ _Replace `[...]` with your desired features._
 For a full list of optional dependencies, see:
 https://pypi.org/project/lerobot/
 
-### Weights & Biases
+### MLflow
 
-To use [Weights and Biases](https://docs.wandb.ai/quickstart) for experiment tracking, log in with
+To log training runs to [MLflow](https://mlflow.org/docs/latest/index.html), enable it in the
+configuration, for example:
 
 ```bash
-wandb login
+python -m lerobot.scripts.train --config-path <path> --mlflow.enable=true
 ```
 
-(note: you will also need to enable WandB in the configuration. See below.)
+By default a local tracking store is created under the run's output directory. You can override the
+destination by setting `mlflow.tracking_uri` (or the `MLFLOW_TRACKING_URI` environment variable) to
+point at an existing MLflow server.
 
 ### Visualize datasets
 

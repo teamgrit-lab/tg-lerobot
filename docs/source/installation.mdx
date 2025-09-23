@@ -108,10 +108,15 @@ pip install -e ".[feetech]" # or "[dynamixel]" for example
 
 ### Experiment Tracking
 
-To use [Weights and Biases](https://docs.wandb.ai/quickstart) for experiment tracking, log in with
+To use [MLflow](https://mlflow.org/docs/latest/index.html) for experiment tracking, enable it in the
+training command:
 
 ```bash
-wandb login
+python -m lerobot.scripts.train --config-path <path> --mlflow.enable=true
 ```
+
+By default Lerobot will create a local MLflow store inside the run's output directory. Set
+`mlflow.tracking_uri=<uri>` (or the `MLFLOW_TRACKING_URI` environment variable) if you would like to
+use an existing MLflow server.
 
 You can now assemble your robot if it's not ready yet, look for your robot type on the left. Then follow the link below to use Lerobot with your robot.

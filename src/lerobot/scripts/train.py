@@ -51,7 +51,7 @@ from lerobot.utils.utils import (
     has_method,
     init_logging,
 )
-from lerobot.utils.wandb_utils import WandBLogger
+from lerobot.utils.mlflow_utils import MlflowLogger
 
 
 def update_policy(
@@ -147,10 +147,10 @@ def train(cfg: TrainPipelineConfig):
     cfg.validate()
     logging.info(pformat(cfg.to_dict()))
 
-    if cfg.wandb.enable and cfg.wandb.project:
-        wandb_logger = WandBLogger(cfg)
+    if cfg.mlflow.enable:
+        mlflow_logger = MlflowLogger(cfg)
     else:
-        wandb_logger = None
+        mlflow_logger = None
         logging.info(colored("Logs will be saved locally.", "yellow", attrs=["bold"]))
 
     if cfg.seed is not None:
@@ -279,11 +279,11 @@ def train(cfg: TrainPipelineConfig):
 
         if is_log_step:
             logging.info(train_tracker)
-            if wandb_logger:
-                wandb_log_dict = train_tracker.to_dict()
+            if mlflow_logger:
+                mlflow_log_dict = train_tracker.to_dict()
                 if output_dict:
-                    wandb_log_dict.update(output_dict)
-                wandb_logger.log_dict(wandb_log_dict, step)
+                    mlflow_log_dict.update(output_dict)
+                mlflow_logger.log_dict(mlflow_log_dict, step)
             train_tracker.reset_averages()
 
         if cfg.save_checkpoint and is_saving_step:
@@ -293,8 +293,8 @@ def train(cfg: TrainPipelineConfig):
                 checkpoint_dir, step, cfg, policy, optimizer, lr_scheduler, preprocessor, postprocessor
             )
             update_last_checkpoint(checkpoint_dir)
-            if wandb_logger:
-                wandb_logger.log_policy(checkpoint_dir)
+            if mlflow_logger:
+                mlflow_logger.log_policy(checkpoint_dir)
 
         if cfg.env and is_eval_step:
             step_id = get_step_identifier(step, cfg.steps)
@@ -333,10 +333,10 @@ def train(cfg: TrainPipelineConfig):
             eval_tracker.eval_s = aggregated.pop("eval_s")
             eval_tracker.avg_sum_reward = aggregated.pop("avg_sum_reward")
             eval_tracker.pc_success = aggregated.pop("pc_success")
-            if wandb_logger:
-                wandb_log_dict = {**eval_tracker.to_dict(), **eval_info}
-                wandb_logger.log_dict(wandb_log_dict, step, mode="eval")
-                wandb_logger.log_video(eval_info["overall"]["video_paths"][0], step, mode="eval")
+            if mlflow_logger:
+                mlflow_log_dict = {**eval_tracker.to_dict(), **eval_info}
+                mlflow_logger.log_dict(mlflow_log_dict, step, mode="eval")
+                mlflow_logger.log_video(eval_info["overall"]["video_paths"][0], step, mode="eval")
 
     if eval_env:
         close_envs(eval_env)

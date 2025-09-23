@@ -50,7 +50,6 @@ charset-normalizer==3.4.2
 click==8.2.1
     # via
     #   flask
-    #   wandb
 cloudpickle==3.1.1
     # via gymnasium
 cmake==4.0.3
@@ -171,7 +170,6 @@ fsspec[http]==2025.3.0
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.45
-    # via wandb
 glfw==2.9.0
     # via
     #   dm-control
@@ -274,6 +272,8 @@ mergedeep==1.3.4
     # via draccus
 meshcat==0.3.2
     # via placo
+mlflow==2.14.1
+    # via lerobot
 mock-serial==0.0.1
     # via lerobot
 mpmath==1.3.0
@@ -383,7 +383,6 @@ packaging==25.0
     #   pytest
     #   scikit-image
     #   transformers
-    #   wandb
 pandas==2.3.1
     # via
     #   datasets
@@ -412,7 +411,6 @@ placo==0.9.14
 platformdirs==4.3.8
     # via
     #   virtualenv
-    #   wandb
 pluggy==1.6.0
     # via
     #   pytest
@@ -432,7 +430,6 @@ protobuf==6.31.0
     #   dm-control
     #   grpcio-tools
     #   lerobot
-    #   wandb
 psutil==7.0.0
     # via
     #   accelerate
@@ -448,7 +445,6 @@ pyarrow==21.0.0
 pycparser==2.22
     # via cffi
 pydantic==2.11.7
-    # via wandb
 pydantic-core==2.33.2
     # via pydantic
 pygame==2.6.1
@@ -512,7 +508,6 @@ pyyaml==6.0.2
     #   pyngrok
     #   pyyaml-include
     #   transformers
-    #   wandb
 pyyaml-include==1.4.1
     # via draccus
 pyzmq==27.0.0
@@ -530,7 +525,6 @@ requests==2.32.4
     #   dm-control
     #   huggingface-hub
     #   transformers
-    #   wandb
 rerun-sdk==0.22.1
     # via lerobot
 rhoban-cmeel-jsoncpp==1.9.4.9
@@ -550,7 +544,6 @@ scipy==1.15.3
     #   dm-control
     #   scikit-image
 sentry-sdk==2.34.1
-    # via wandb
 shapely==2.1.1
     # via gym-pusht
 six==1.17.0
@@ -616,7 +609,6 @@ typing-extensions==4.14.1
     #   torch
     #   typing-inspect
     #   typing-inspection
-    #   wandb
 typing-inspect==0.9.0
     # via draccus
 typing-inspection==0.4.1
@@ -631,8 +623,6 @@ urllib3==2.5.0
     #   sentry-sdk
 virtualenv==20.32.0
     # via pre-commit
-wandb==0.21.0
-    # via lerobot
 wcwidth==0.2.13
     # via prompt-toolkit
 werkzeug==3.1.3

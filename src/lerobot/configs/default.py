@@ -41,15 +41,15 @@ class DatasetConfig:
 
 
 @dataclass
-class WandBConfig:
+class MlflowConfig:
     enable: bool = False
-    # Set to true to disable saving an artifact despite training.save_checkpoint=True
+    # Disable artifact uploads even if checkpoints are generated locally
     disable_artifact: bool = False
-    project: str = "lerobot"
-    entity: str | None = None
-    notes: str | None = None
+    experiment: str = "lerobot"
+    tracking_uri: str | None = None
     run_id: str | None = None
-    mode: str | None = None  # Allowed values: 'online', 'offline' 'disabled'. Defaults to 'online'
+    tags: dict[str, str] | None = None
+    description: str | None = None
 
 
 @dataclass
