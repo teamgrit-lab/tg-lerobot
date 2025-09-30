@@ -16,6 +16,7 @@
 import logging
 import shutil
 import time
+import warnings
 from contextlib import nullcontext
 from pathlib import Path
 from pprint import pformat
@@ -154,6 +155,11 @@ def train(cfg: TrainPipelineConfig):
     log_file = output_dir / "train.log"
     init_logging(log_file=log_file)
     logging.getLogger("lerobot.datasets.video_utils").setLevel(logging.ERROR)
+    warnings.filterwarnings(
+        "ignore",
+        message="The video decoding and encoding capabilities of torchvision are deprecated",
+        category=UserWarning,
+    )
 
     logging.info(pformat(cfg.to_dict()))
 
