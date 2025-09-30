@@ -17,6 +17,7 @@ import logging
 import shutil
 import time
 from contextlib import nullcontext
+from pathlib import Path
 from pprint import pformat
 from typing import Any
 
@@ -147,6 +148,13 @@ def train(cfg: TrainPipelineConfig):
         cfg: A `TrainPipelineConfig` object containing all training configurations.
     """
     cfg.validate()
+
+    output_dir = Path(cfg.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    log_file = output_dir / "train.log"
+    init_logging(log_file=log_file)
+    logging.getLogger("lerobot.datasets.video_utils").setLevel(logging.ERROR)
+
     logging.info(pformat(cfg.to_dict()))
 
     if cfg.mlflow.enable:
@@ -367,7 +375,6 @@ def train(cfg: TrainPipelineConfig):
 
 
 def main():
-    init_logging()
     train()
 
 

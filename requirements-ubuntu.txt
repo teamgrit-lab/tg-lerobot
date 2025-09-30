@@ -35,6 +35,10 @@ attrs==25.3.0
     #   rerun-sdk
 av==15.0.0
     # via lerobot
+boto3==1.35.57
+    # via lerobot
+botocore==1.35.57
+    # via boto3
 blinker==1.9.0
     # via flask
 certifi==2025.7.14
