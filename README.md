@@ -141,7 +141,7 @@ cd lerobot
 Then, install the library in editable mode. This is useful if you plan to contribute to the code.
 
 ```bash
-pip install -e .
+pip install -e ".[feetech]"
 ```
 
 > **NOTE:** If you encounter build errors, you may need to install additional dependencies (`cmake`, `build-essential`, and `ffmpeg libs`). On Linux, run:
