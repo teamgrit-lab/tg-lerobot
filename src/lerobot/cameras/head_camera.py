@@ -6,8 +6,17 @@ import asyncio, websockets, time
 url = ""
 Gst.init(None)
 
-cmd = "v4l2src device=/dev/video1 ! image/jpeg, width=1280, height=720, framerate=30/1 ! jpegparse ! jpegdec ! videoconvert ! x264enc bitrate=4096 speed-preset=1 key-int-max=30 tune=zerolatency ! h264parse ! vide>
-pipeline = Gst.parse_launch(cmd)
+pipeline = Gst.parse_launch(
+        "v4l2src device=/dev/video1 ! "
+        "image/jpeg, width=1280, height=720, framerate=30/1 ! "
+        "jpegparse ! "
+        "jpegdec ! "
+        "videoconvert ! "
+        "x264enc bitrate=4096 speed-preset=1 key-int-max=30 tune=zerolatency ! "
+        "h264parse ! "
+        "video/x-h264, alignment=au, stream-format=byte-stream ! "
+        "queue leaky=2 ! appsink drop=true sync=false name=sink max-buffers=3 emit-signals=true"
+)
 sink = pipeline.get_by_name('sink')
 pipeline.set_state(Gst.State.PLAYING)
 
