@@ -6,6 +6,7 @@ import asyncio, websockets, time
 url = ""
 Gst.init(None)
 
+global pipeline
 pipeline = Gst.parse_launch(
     "v4l2src device=/dev/video12 ! "
     "image/jpeg, width=2880, height=1440, framerate=30/1 ! "
@@ -20,6 +21,13 @@ pipeline = Gst.parse_launch(
 )
 sink = pipeline.get_by_name('sink')
 pipeline.set_state(Gst.State.PLAYING)
+time.sleep(1)
+
+def restart():
+        global pipeline
+        pipeline.set_state(Gst.State.NULL)
+        time.sleep(1)
+        pipeline.set_state(Gst.State.PLAYING)
 
 async def recv(ws):
         print("recv")
@@ -34,17 +42,22 @@ async def send(ws):
         count = 0
         await ws.send('video/h264;width=1440;height=720;framerate=30;codecs=avc1.42002A')
         while True:
-                sample = sink.emit("pull-sample")
-                if time.time() - now > 1:
-                        now = time.time()
-                        print(count, "fps")
-                        count = 0
-                if sample:
-                        buf = sample.get_buffer()
-                        data = buf.extract_dup(0, buf.get_size())
-                        await ws.send(data)
-                        count += 1
-                await asyncio.sleep(0.01)
+                try:
+                        sample = sink.emit("pull-sample")
+                        if time.time() - now > 1:
+                                now = time.time()
+                                print(count, "fps")
+                                if count == 0:
+                                        restart()
+                                count = 0
+                        if sample:
+                                buf = sample.get_buffer()
+                                data = buf.extract_dup(0, buf.get_size())
+                                await ws.send(data)
+                                count += 1
+                        await asyncio.sleep(0.01)
+                except:
+                        await asyncio.sleep(0.1)
 
 async def main():
         async with websockets.connect(url, ping_timeout=None) as ws:

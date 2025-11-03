@@ -26,6 +26,20 @@ python -m lerobot.ws_leader_teleoperate \
     --ws.port=8765 \
     --ws.endpoint=/ws/teleop
 ```
+
+간소화된 실행(추천):
+
+고정값을 설정 파일로 관리하면 한 줄로 실행할 수 있습니다.
+
+```shell
+python -m lerobot.ws_leader_teleoperate --config_path=configs/ws_leader_grit.yaml
+```
+
+필요 시 일부만 CLI로 덮어쓸 수 있습니다. 예:
+
+```shell
+python -m lerobot.ws_leader_teleoperate --config_path=configs/ws_leader_grit.yaml --ws.host=localhost
+```
 """
 
 import asyncio

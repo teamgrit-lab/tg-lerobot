@@ -1,0 +1,9 @@
+teleop:
+  type: so101_leader
+  port: /dev/ttyACM0
+  id: grit_leader_arm
+
+ws:
+  host: 192.168.0.102
+  port: 8276
+  endpoint: "/pang/ws/pub?channel=instant&name=test123&track=test&mode=single"

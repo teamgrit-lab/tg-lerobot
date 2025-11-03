@@ -6,6 +6,7 @@ import asyncio, websockets, time
 url = ""
 Gst.init(None)
 
+global pipeline
 pipeline = Gst.parse_launch(
         "v4l2src device=/dev/video1 ! "
         "image/jpeg, width=1280, height=720, framerate=30/1 ! "
@@ -19,6 +20,13 @@ pipeline = Gst.parse_launch(
 )
 sink = pipeline.get_by_name('sink')
 pipeline.set_state(Gst.State.PLAYING)
+time.sleep(1)
+
+def restart():
+        global pipeline
+        pipeline.set_state(Gst.State.NULL)
+        time.sleep(1)
+        pipeline.set_state(Gst.State.PLAYING)
 
 async def recv(ws):
         print("recv")
@@ -37,6 +45,8 @@ async def send(ws):
                 if time.time() - now > 1:
                         now = time.time()
                         print(count, "fps")
+                        if count == 0:
+                                restart()
                         count = 0
                 if sample:
                         buf = sample.get_buffer()
