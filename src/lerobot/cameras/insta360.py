@@ -2,10 +2,43 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 import asyncio, websockets, time
-from lerobot.ws_leader_teleoperate import WebsocketClientConfig
+from pathlib import Path
 
-ws_cfg = WebsocketClientConfig()
-url = f"ws://{ws_cfg.host}:{ws_cfg.port}/pang/ws/pub?channel=instant&name=test&track=insta360&mode=single"
+def _find_project_root() -> Path:
+        here = Path(__file__).resolve()
+        for p in here.parents:
+                if (p / "pyproject.toml").exists():
+                        return p
+        return here.parent
+
+
+def _load_host_port_from_common_yaml() -> tuple[str, int]:
+        host = "localhost"
+        port = 8765
+        try:
+                root = _find_project_root()
+                cfg = root / "configs" / "ws_common.yaml"
+                if cfg.exists():
+                        with cfg.open("r", encoding="utf-8") as f:
+                                for line in f:
+                                        line = line.strip()
+                                        if not line or line.startswith("#"):
+                                                continue
+                                        if line.startswith("host:"):
+                                                host = line.split(":", 1)[1].strip()
+                                        elif line.startswith("port:"):
+                                                port_str = line.split(":", 1)[1].strip()
+                                                try:
+                                                        port = int(port_str)
+                                                except ValueError:
+                                                        pass
+        except Exception:
+                pass
+        return host, port
+
+
+_host, _port = _load_host_port_from_common_yaml()
+url = f"ws://{_host}:{_port}/pang/ws/pub?channel=instant&name=test&track=insta360&mode=single"
 Gst.init(None)
 
 global pipeline
