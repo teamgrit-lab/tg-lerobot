@@ -2,8 +2,10 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 import asyncio, websockets, time
+from lerobot.ws_leader_teleoperate import WebsocketClientConfig
 
-url = ""
+ws_cfg = WebsocketClientConfig()
+url = f"ws://{ws_cfg.host}:{ws_cfg.port}/pang/ws/pub?channel=instant&name=test&track=insta360&mode=single"
 Gst.init(None)
 
 global pipeline
