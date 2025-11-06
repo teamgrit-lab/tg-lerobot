@@ -4,6 +4,5 @@ teleop:
   id: grit_leader_arm
 
 ws:
-  host: 192.168.0.102
-  port: 8276
+  path: configs/ws_common.yaml
   endpoint: "/pang/ws/pub?channel=instant&name=test123&track=test&mode=single"

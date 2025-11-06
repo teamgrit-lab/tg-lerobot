@@ -4,6 +4,5 @@ robot:
   id: grit_follower_arm
 
 ws:
-  host: 192.168.0.102
-  port: 8276
+  path: configs/ws_common.yaml
   endpoint: "/pang/ws/sub?channel=instant&name=test123&track=test&mode=single"

@@ -56,6 +56,7 @@ import draccus
 import numpy as np
 import rerun as rr
 import websockets
+from pathlib import Path
 
 from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig  # noqa: F401
 from lerobot.cameras.realsense.configuration_realsense import RealSenseCameraConfig  # noqa: F401
@@ -132,6 +133,30 @@ class WebsocketClientConfig:
     host: str = "localhost"
     port: int = 8765
     endpoint: str = "/ws/teleop"
+    # 외부 파일에서 공용 설정을 불러오기 위한 선택적 경로
+    path: str | None = None
+
+    def __post_init__(self):
+        # 공용 설정 파일이 지정된 경우, 기본값과 비교해 필요한 항목만 병합
+        if self.path:
+            try:
+                resolved_path = Path(self.path).expanduser()
+                if not resolved_path.is_absolute():
+                    here = Path(__file__).resolve()
+                    project_root = next((p for p in here.parents if (p / "pyproject.toml").exists()), None)
+                    if project_root is not None:
+                        resolved_path = project_root / resolved_path
+
+                ws_from_file = draccus.parse(WebsocketClientConfig, str(resolved_path), args=[])
+                defaults = WebsocketClientConfig()
+                if self.host == defaults.host:
+                    self.host = ws_from_file.host
+                if self.port == defaults.port:
+                    self.port = ws_from_file.port
+                if self.endpoint == defaults.endpoint:
+                    self.endpoint = ws_from_file.endpoint
+            except Exception as e:
+                logging.warning(f"Failed to load ws config from path '{self.path}': {e}")
 
 
 @dataclass
