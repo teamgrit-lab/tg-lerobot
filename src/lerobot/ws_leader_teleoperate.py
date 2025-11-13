@@ -80,7 +80,7 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-async def send_actions_loop(teleop: Teleoperator, websocket):
+async def send_actions_loop(teleop: Teleoperator, websocket, log_enabled: bool = False):
     """
     Get actions from the leader and send them through the websocket.
     """
@@ -90,7 +90,8 @@ async def send_actions_loop(teleop: Teleoperator, websocket):
             action = teleop.get_action()
             if action:
                 message = json.dumps(action, cls=NumpyEncoder)
-                print(f"Sending message: {message}")
+                if log_enabled:
+                    print(f"Sending message: {message}")
                 await websocket.send(message.encode("utf-8"))
             # Adjust sleep time to control the rate of sending actions
             await asyncio.sleep(1 / 30)  # ~30 Hz
@@ -140,6 +141,8 @@ class WebsocketClientConfig:
 class LeaderTeleoperateConfig:
     teleop: TeleoperatorConfig
     ws: WebsocketClientConfig = field(default_factory=WebsocketClientConfig)
+    # 전송 문자열 출력 여부 (True일 때만 93줄 로그 출력)
+    log: bool = False
 
 
 async def main(cfg: LeaderTeleoperateConfig):
@@ -156,7 +159,7 @@ async def main(cfg: LeaderTeleoperateConfig):
             logging.info(f"Attempting to connect to {websocket_url}...")
             async with websockets.connect(websocket_url, ping_timeout=None) as websocket:
                 logging.info(f"Connected to websocket server at {websocket_url}")
-                await send_actions_loop(teleop, websocket)
+                await send_actions_loop(teleop, websocket, cfg.log)
         except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:
             logging.error(f"Failed to connect or connection lost: {e}. Retrying in 5 seconds.")
             await asyncio.sleep(5)
