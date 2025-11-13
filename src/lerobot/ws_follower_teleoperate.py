@@ -173,7 +173,9 @@ class FollowerTeleoperateConfig:
     log: bool = False
 
 
-def follower_info_loop(robot: Robot, display_data: bool = False, duration: float | None = None):
+def follower_info_loop(
+    robot: Robot, display_data: bool = False, duration: float | None = None, log_enabled: bool = False
+):
     """The main loop for displaying robot info."""
     while not robot.is_connected:
         logging.info("Waiting for robot to connect...")
@@ -193,7 +195,8 @@ def follower_info_loop(robot: Robot, display_data: bool = False, duration: float
 
         if action is None:
             # Wait for the first action to arrive
-            logging.info("Waiting for first action from websocket...")
+            if log_enabled:
+                logging.info("Waiting for first action from websocket...")
             time.sleep(0.01)
             continue
 
@@ -239,7 +242,12 @@ def follower_teleoperate(cfg: FollowerTeleoperateConfig):
 
     try:
         # The main thread can be used for other tasks, like displaying info
-        follower_info_loop(robot, display_data=cfg.display_data, duration=cfg.teleop_time_s)
+        follower_info_loop(
+            robot,
+            display_data=cfg.display_data,
+            duration=cfg.teleop_time_s,
+            log_enabled=cfg.log,
+        )
     except KeyboardInterrupt:
         print("\nExiting...")
     finally:
