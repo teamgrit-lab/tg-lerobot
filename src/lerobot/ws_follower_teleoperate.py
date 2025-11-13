@@ -79,14 +79,15 @@ latest_action: dict[str, Any] | None = None
 action_lock = threading.Lock()
 
 
-async def receive_actions_loop(websocket, robot: Robot):
+async def receive_actions_loop(websocket, robot: Robot, log_enabled: bool = False):
     """Receive actions from the websocket and send them to the robot immediately."""
     global latest_action
     async for message in websocket:
         try:
             # Assuming the message is received as bytes, decode it first.
             decoded_message = message.decode("utf-8")
-            # print(decoded_message)
+            if log_enabled:
+                print(f"Received message: {decoded_message}")
             data = json.loads(decoded_message)
             action = {k: np.array(v) for k, v in data.items()}
             robot.send_action(action)
@@ -100,13 +101,13 @@ async def receive_actions_loop(websocket, robot: Robot):
             break
 
 
-async def websocket_client(url, robot: Robot):
+async def websocket_client(url, robot: Robot, log_enabled: bool = False):
     """Manages the websocket connection and reconnection."""
     while True:
         try:
             async with websockets.connect(url, ping_timeout=None) as websocket:
                 logging.info(f"Connected to websocket server at {url}")
-                await receive_actions_loop(websocket, robot)
+                await receive_actions_loop(websocket, robot, log_enabled)
         except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError, OSError) as e:
             logging.error(f"Failed to connect or connection lost: {e}. Retrying in 5 seconds.")
             await asyncio.sleep(5)
@@ -115,11 +116,11 @@ async def websocket_client(url, robot: Robot):
             await asyncio.sleep(5)
 
 
-def run_websocket_client_in_thread(url, robot: Robot):
+def run_websocket_client_in_thread(url, robot: Robot, log_enabled: bool = False):
     """Runs the asyncio websocket client in a separate thread."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(websocket_client(url, robot))
+    loop.run_until_complete(websocket_client(url, robot, log_enabled))
 
 
 def get_action_from_shared_state() -> dict[str, Any] | None:
@@ -168,6 +169,8 @@ class FollowerTeleoperateConfig:
     teleop_time_s: float | None = None
     # Display all cameras on screen
     display_data: bool = False
+    # 수신 문자열 출력 여부 (True일 때만 로그 출력)
+    log: bool = False
 
 
 def follower_info_loop(robot: Robot, display_data: bool = False, duration: float | None = None):
@@ -230,7 +233,7 @@ def follower_teleoperate(cfg: FollowerTeleoperateConfig):
 
     # Start websocket client in a background daemon thread
     ws_thread = threading.Thread(
-        target=run_websocket_client_in_thread, args=(websocket_url, robot), daemon=True
+        target=run_websocket_client_in_thread, args=(websocket_url, robot, cfg.log), daemon=True
     )
     ws_thread.start()
 
