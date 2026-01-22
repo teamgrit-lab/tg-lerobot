@@ -104,9 +104,19 @@ async def send(ws):
                         await asyncio.sleep(0.1)
 
 async def main():
-        async with websockets.connect(url, ping_timeout=None) as ws:
-                t1 = asyncio.create_task(recv(ws))
-                t2 = asyncio.create_task(send(ws))
-                await asyncio.gather(t1, t2)
+        while True:
+                try:
+                        async with websockets.connect(url, ping_timeout=None) as ws:
+                                t1 = asyncio.create_task(recv(ws))
+                                t2 = asyncio.create_task(send(ws))
+                                try:
+                                        await asyncio.gather(t1, t2)
+                                finally:
+                                        t1.cancel()
+                                        t2.cancel()
+                                        await asyncio.gather(t1, t2, return_exceptions=True)
+                except Exception as exc:
+                        print("ws connect failed, retrying", exc)
+                        await asyncio.sleep(1)
 
 asyncio.run(main())
