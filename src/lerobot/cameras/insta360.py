@@ -41,8 +41,7 @@ _host, _port = _load_host_port_from_common_yaml()
 url = f"ws://{_host}:{_port}/pang/ws/pub?channel=instant&name=test&track=insta360&mode=single"
 Gst.init(None)
 
-global pipeline
-pipeline = Gst.parse_launch(
+PIPELINE_DESC = (
     "v4l2src device=/dev/video12 ! "
     "image/jpeg, width=2880, height=1440, framerate=30/1 ! "
     "jpegparse ! "
@@ -57,15 +56,22 @@ pipeline = Gst.parse_launch(
     "queue leaky=downstream ! "
     "appsink name=sink drop=true max-buffers=1 emit-signals=true sync=false"
 )
-sink = pipeline.get_by_name('sink')
-pipeline.set_state(Gst.State.PLAYING)
-time.sleep(1)
+
+def _start_pipeline() -> tuple[Gst.Pipeline, Gst.Element]:
+    pipeline = Gst.parse_launch(PIPELINE_DESC)
+    sink = pipeline.get_by_name("sink")
+    pipeline.set_state(Gst.State.PLAYING)
+    pipeline.get_state(2 * Gst.SECOND)
+    return pipeline, sink
+
+pipeline, sink = _start_pipeline()
 
 def restart():
-        global pipeline
-        pipeline.set_state(Gst.State.NULL)
-        time.sleep(1)
-        pipeline.set_state(Gst.State.PLAYING)
+        global pipeline, sink
+        if pipeline is not None:
+                pipeline.set_state(Gst.State.NULL)
+                pipeline.get_state(2 * Gst.SECOND)
+        pipeline, sink = _start_pipeline()
 
 async def recv(ws):
         print("recv")
@@ -98,9 +104,19 @@ async def send(ws):
                         await asyncio.sleep(0.1)
 
 async def main():
-        async with websockets.connect(url, ping_timeout=None) as ws:
-                t1 = asyncio.create_task(recv(ws))
-                t2 = asyncio.create_task(send(ws))
-                await asyncio.gather(t1, t2)
+        while True:
+                try:
+                        async with websockets.connect(url, ping_timeout=None) as ws:
+                                t1 = asyncio.create_task(recv(ws))
+                                t2 = asyncio.create_task(send(ws))
+                                try:
+                                        await asyncio.gather(t1, t2)
+                                finally:
+                                        t1.cancel()
+                                        t2.cancel()
+                                        await asyncio.gather(t1, t2, return_exceptions=True)
+                except Exception as exc:
+                        print("ws connect failed, retrying", exc)
+                        await asyncio.sleep(1)
 
 asyncio.run(main())
