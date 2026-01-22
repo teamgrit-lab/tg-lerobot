@@ -2,6 +2,7 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 import asyncio, websockets, time
+import os
 from pathlib import Path
 
 def _find_project_root() -> Path:
@@ -37,12 +38,101 @@ def _load_host_port_from_common_yaml() -> tuple[str, int]:
         return host, port
 
 
+def _parse_hint_env(env_var: str) -> tuple[str, ...] | None:
+        raw = os.getenv(env_var, "").strip()
+        if not raw:
+                return None
+        hints = [part.strip().lower() for part in raw.split(",") if part.strip()]
+        return tuple(hints) if hints else None
+
+
+def _matches_hints(text: str, hints: tuple[str, ...] | None) -> bool:
+        if not hints:
+                return True
+        return any(hint in text for hint in hints)
+
+
+def _iter_v4l2_by_id() -> list[Path]:
+        by_id_dir = Path("/dev/v4l/by-id")
+        if not by_id_dir.exists():
+                return []
+        return sorted(by_id_dir.iterdir())
+
+
+def _pick_v4l2_by_id(name_hints: tuple[str, ...] | None) -> str | None:
+        candidates: list[Path] = []
+        for entry in _iter_v4l2_by_id():
+                entry_name = entry.name.lower()
+                if not _matches_hints(entry_name, name_hints):
+                        continue
+                candidates.append(entry)
+        if not candidates:
+                return None
+        for entry in candidates:
+                if "index0" in entry.name:
+                        return str(entry.resolve(strict=False))
+        return str(candidates[0].resolve(strict=False))
+
+
+def _pick_v4l2_by_sysfs(name_hints: tuple[str, ...]) -> str | None:
+        sys_dir = Path("/sys/class/video4linux")
+        if not sys_dir.exists():
+                return None
+        for video in sorted(sys_dir.glob("video*")):
+                name_path = video / "name"
+                if not name_path.exists():
+                        continue
+                name = name_path.read_text(encoding="utf-8", errors="ignore").strip().lower()
+                if _matches_hints(name, name_hints):
+                        return f"/dev/{video.name}"
+        return None
+
+
+def _resolve_v4l2_device(
+        default_device: str,
+        device_env: str,
+        name_hints: tuple[str, ...] | None = None,
+) -> str:
+        env_device = os.getenv(device_env, "").strip()
+        if env_device:
+                return env_device
+        device = _pick_v4l2_by_id(name_hints)
+        if device:
+                return device
+        if name_hints:
+                device = _pick_v4l2_by_sysfs(name_hints)
+                if device:
+                        return device
+        return default_device
+
+
+def _wait_for_device(device_path: str, timeout_s: float = 10.0) -> None:
+        if Path(device_path).exists():
+                return
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+                if Path(device_path).exists():
+                        return
+                time.sleep(0.2)
+        print(f"warning: device not found after {timeout_s:.1f}s: {device_path}")
+
+
 _host, _port = _load_host_port_from_common_yaml()
 url = f"ws://{_host}:{_port}/pang/ws/pub?channel=instant&name=test&track=insta360&mode=single"
+_INSTA_HINTS_ENV = "LEROBOT_INSTA360_HINTS"
+_INSTA_DEVICE_ENV = "LEROBOT_INSTA360_DEVICE"
+_insta_hints = _parse_hint_env(_INSTA_HINTS_ENV) or ("insta360", "insta", "link")
+DEVICE_PATH = _resolve_v4l2_device(
+        default_device="/dev/video12",
+        device_env=_INSTA_DEVICE_ENV,
+        name_hints=_insta_hints,
+)
+_wait_for_device(DEVICE_PATH)
+print(f"insta360 device: {DEVICE_PATH}")
 Gst.init(None)
 
 PIPELINE_DESC = (
-    "v4l2src device=/dev/video12 ! "
+    f'v4l2src device="{DEVICE_PATH}" ! '
     "image/jpeg, width=2880, height=1440, framerate=30/1 ! "
     "jpegparse ! "
     "jpegdec ! "
